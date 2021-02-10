@@ -1,0 +1,30 @@
+---
+title: "Causal Assignment 2"
+author: "Hannah Jones"
+date: "2/9/2021"
+output: pdf_document
+---
+
+## Causal Inference Assignment 2 ##
+
+### Gentzkow and Shapiro ###
+
+#### 1. Chapter 2-8 Summary ####
+
+#### 2. ####
+
+#### 3. ####
+
+#### 4. ####
+
+### Git and GitHub ###
+
+5. Git and github are used for interacting with code and other project files.  Git is a distributed version control system.  Github works with git and hosts files and eases the interaction with git.
+
+6. Using git for empirical research enables easier collaboration and organization as you go through many versions of data and code.  If you dont use git, it is easy to drown in irregular and confusing version control that overcomplicates making necessary changes and improvements over the life of a project.
+
+7. Git is great!  So far, I have not figured out how to collaborate with others on github.  I have pushed my own changes through git, but would like to learn more about collaboration.  To do this, I will work with a classmate to explore how it is done.
+
+8. The four main git operations are: 
+
+
