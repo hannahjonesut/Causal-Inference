@@ -10,6 +10,7 @@ output: pdf_document
 ### Gentzkow and Shapiro ###
 
 #### 1. Chapter 2-8 Summary ####
+
 Chapter 2 emphasizes how automating the work-flow of a research project is important in yielding reproducible results.  By automating the process, you can reduce the number of steps taken to reproduce results, avoid issues associated with moving data around, and any issues that result from changing research teams.  A good way of automating is by creating a directory that can instruct how the data/code should be run through. 
 
 Chapter 3 emphasizes the importance of version control. The traditional way of adding a date or editor gets very clunky and confusing over time.  Doing automated version control keeps track of who changed what, and maintains one authoritative version.  Additionally, this process enables you to roll back any unwanted changes.
@@ -18,11 +19,11 @@ Chapter 4 walks through the creation and management of directories. This is usef
 
 Chapter 5 emphasizes the importance of a logically designed database.  The database should have a key that uniquely identifies each element and can never be missing. The raw data should be preserved in normalized files to maintain the original data.  Then, the data should be transformed from the raw data and combined as necessary.  Finally, any additional information should be merged and any other transformations done.
 
-Chapter 6 
+Chapter 6 shows the value of abstraction in writing code.  Abstraction refers to the process of generalizing a formula and writing it once, then feeding the required set of variables to the formula when needed.  This enables clean code and eliminates 'copy-and-pasting' for formulas that will be run multiple times on different variables.  
 
-Chapter 7
+Chapter 7 discusses how to determine the right amount of documentation to provide clarity but not introduce errors/confusion. Documentation does not have to be updated for code to run, so it is easy to update code without updating the relevant notes.  To avoid this issue, the author suggests using as little documentation as possible, and writing clear code that is easily updated to substitute for the flat documentation.
 
-Chapter 8
+Chapter 8 introduces a better method for task management through using a task management system as opposed to emails and other one-off comment methods.  Task management specifically associated with a task and assigned to a collaborator is a better way of keeping track of the status of tasks.  
 
 #### 2. Why do Genztkow and Shapiro think these elements of modern empirical work are so important? What problems does each element solve ####
 
