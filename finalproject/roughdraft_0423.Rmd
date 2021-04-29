@@ -1,0 +1,208 @@
+---
+title: "Food Deserts and Health Outcomes"
+author: "Hannah Jones"
+date: "4/23/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+library(difR)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(haven)
+library(estimatr)
+
+desert10<- read.csv('https://raw.githubusercontent.com/hannahjonesut/Causal-Inference/main/finalproject/usda_deserts_2013.csv')
+desert15<- read.csv('https://raw.githubusercontent.com/hannahjonesut/Causal-Inference/main/finalproject/usda_deserts_2017.csv')
+health_2013 <- read.csv("~/Downloads/500_Cities__Census_Tract-level_Data__GIS_Friendly_Format___2016_release.csv")
+health_2017 <- read.csv("~/Downloads/500_Cities__Census_Tract-level_Data__GIS_Friendly_Format___2019_release.csv")
+
+```
+
+## Using Differences-in-difference Design to Determine the Effect of Food Access on Obesity in the US
+
+
+In order to study the effect of food insecurity on impacted populations, I used grocery store distance data from 2010 and 2015, and health data from within the time period of change (2013) and after (2017).  I then examine health outcomes for these treated to groups to see if increased distance from groceries causes poor health outcomes compared to those groups with no change in status.
+
+The primary goal of this paper is to measure the causal effect between access to food and health outcomes.  The identifying assumption underlying this differences-in-difference strategy is the changes in health outcomes for counties with small changes in access to food provide a good counterfactual for the changes in health outcomes that would have been observed for counties with larger changes in access if their access to food had changed similarly.
+  
+To assess this assumption, I focus on the distance to the closest grocery store, plotting health outcomes over time for groups sorted according to their changes in distance to the closest store between 2010 and 2015.  The data contains flags to indicate which census tracts are within 0.5 miles or 1 mile of a grocery store for urban areas, and withing 10 or 20 miles for rural areas.  The movement of these flags between time periods will serve indicate grocery store openings if distance reduces, and grocery store closings if the distance increases for any tract.  For the outcome variable, we will look at health data collected in 2013 and 2017.  The markers of interest that are generally associated with low food access are obesity, diabetes, high blood pressure and high cholesterol.  The data from the CDC surveys indicate the prevalence of obesity, diabetes, high blood pressure, and high cholesterol as a percentage of the population.
+	
+	
+Using the distance indicators, I designate the treatment group as any rural or urban population that
+become a food desert between the two observation years.  This is to say that in the first set of data
+from 2010, the census tract observed has a grocery store within 1 mile if it is urban, and within 20
+miles if it is rural, but then in the second set of data, the census tract no longer has a grocery store
+within the appropriate distance.  This “treatment” indicates the closure of grocery stores since the
+distance to the closest store has now increased outside of the 1-mile (urban)/ 20-mile (rural)
+threshold.  
+	
+
+To run a differences-in-difference model, we use the emergence of a food desert (grocery store
+closures) as the treatment, and we can use the prevalence obesity as the outcome. We will compare the
+prevalence of obesity in areas that retained their proximity to grocery stores to these areas that
+emerged as food deserts between 2010 and 2015.  We assume parallel trends in this analysis.  This
+assumption requires that nothing unobserved changes within a census tract that would also determine
+obesity prevalence.  
+
+### Analysis:
+
+ To analyze the impact of food desert status on health, I use a weighted dif-in-dif technique.  I
+predicted a propensity score for each Census Tract based on population, urban status, income status, and
+a variety of health factors.  I chose these covariates to capture the propentsity of already low-income
+and low-health populations to lose grocery store access.  
+
+
+```{r }
+
+colnames(desert10) <- paste(colnames(desert10), "2010", sep = "_")
+colnames(desert15) <- paste(colnames(desert15), "2015", sep = "_")
+
+desert_1015<- merge(desert10, desert15,  by.x = "CensusTract_2010", by.y = "CensusTract_2015")
+
+US_deserts<- desert_1015 %>%
+  mutate(desert_2010 = ifelse(LATracts_half_2010 == 0 & LATracts1_2010 == 0 & LATracts10_2010 == 0 & LATracts20_2010 == 0, 1, 0), 
+         desert_2015 = ifelse(LATracts_half_2015 == 0 & LATracts1_2015 == 0 & LATracts10_2015 == 0 & LATracts20_2015 == 0, 1, 0),
+         treat = ifelse(desert_2010 == 0 & desert_2015 == 1, 1, 0))
+
+
+health_2013 = health_2013[,!grepl("_Crude95CI$",names(health_2013))]
+health_2017 = health_2017[,!grepl("_Crude95CI$",names(health_2017))]
+
+colnames(health_2013) <- paste(colnames(health_2013), "2013", sep = "_")
+colnames(health_2017) <- paste(colnames(health_2017), "2017", sep = "_")
+
+health_1317 <- merge(health_2013, health_2017, by.x = "TractFIPS_2013", by.y = "TractFIPS_2017")
+
+# Food desert is treatment -- does treatment treatment in 2017 cause worse health outcomes
+
+US_dataset <- merge(US_deserts, health_1317, by.x = "CensusTract_2010", by.y = "TractFIPS_2013")
+
+# estimating LOGIT 
+logit_desert <- glm(treat ~ Urban_2010 + POP2010_2010 + OHU2010_2010 + LowIncomeTracts_2010 + ACCESS2_CrudePrev_2013 + BINGE_CrudePrev_2013
+                    + BPHIGH_CrudePrev_2013 + CANCER_CrudePrev_2013 + CSMOKING_CrudePrev_2013 + DIABETES_CrudePrev_2013 + 
+                      OBESITY_CrudePrev_2013, 
+                    family = binomial(link = "logit"), 
+                    data = US_dataset)
+
+logit_usdata_pscore  <- US_dataset  %>% 
+  mutate(pscore = ifelse(treat == 0 | treat == 1, logit_desert$fitted.values, "NA"))
+
+# mean pscore 
+logit_sumstat<- logit_usdata_pscore %>% 
+  group_by(treat)%>% 
+  summarize(mean = mean(pscore), 
+            max = max(pscore),
+            min = min(pscore))
+logit_sumstat
+```
+
+Above are the mean propensity scores for the treated and untreated census tracts. I dropped the pscores over 0.9 and under 0.1 to remove extreme cases.
+
+```{r}
+
+#drop pscores <0.1 and >0.9
+cut_logit_data<- logit_usdata_pscore %>%
+  filter(pscore > 0.1 & pscore < 0.9)
+
+#Histograms of propensity scores
+cut_logit_data %>% 
+  filter(treat == 0) %>% 
+  ggplot() +
+  geom_histogram(aes(x = pscore))+
+  labs(title = "Propensity Scores for Untreated")
+
+cut_logit_data %>% 
+  filter(treat == 1) %>% 
+  ggplot() +
+  geom_histogram(aes(x = pscore))+
+  labs(title = "Propensity Scores for Treated")
+
+#logit averages
+sumstat_cut_logit_data<- cut_logit_data %>% 
+  group_by(treat)%>% 
+  summarize(logit_mean = mean(pscore), 
+            logit_max = max(pscore), 
+            logit_min = min(pscore))
+sumstat_cut_logit_data
+```
+
+The histograms above show the distribution of propensity scores for the treated and untreated Census Tracts.  The summary shows that the mean propensity score is slightly higher for the treatment group.  We will use these propensity scores to weight the treatment effect.  First, we can look at the average treatment effect of grocery store closures between 2010 and 2015 on obesity prevalence between 2013 and 2017. As shown below, the average treatment effect of grocery store closure is and increase in obesity prevalence of ~4.4%.
+
+
+```{r}
+
+
+#number 2: Using trimmed Logit with covariates
+
+#cut_logit_data %>% 
+ # filter(treat == 1) %>% 
+ # summary(OBESITY_CrudePrev_2017)
+
+mean1 <- cut_logit_data%>% 
+  filter(treat == 1) %>% 
+  pull(OBESITY_CrudePrev_2017) %>% 
+  mean()
+
+cut_logit_data$y1 <- mean1
+
+#cut_logit_data%>% 
+#  filter(treat == 0) %>% 
+ # summary(OBESITY_CrudePrev_2017)
+
+mean0 <- cut_logit_data%>% 
+  filter(treat == 0) %>% 
+  pull(OBESITY_CrudePrev_2017) %>% 
+  mean()
+
+cut_logit_data$y0 <- mean0
+
+AverageTreatmentEffect <- unique(cut_logit_data$y1 - cut_logit_data$y0)
+AverageTreatmentEffect
+
+cut_logit_data <- cut_logit_data%>% 
+  select(-y1, -y0)
+```
+
+Now I will look at the weighted difference using the propensity scores, using both non-normalized and normalized weights.  
+
+```{r}
+#LOGIT
+#continuation
+N <- nrow(cut_logit_data )
+#- Manual with non-normalized weights using all data
+cut_logit_data  <- cut_logit_data  %>% 
+  mutate(d1 = treat/pscore,
+         d0 = (1-treat)/(1-pscore))
+
+s1 <- sum(cut_logit_data$d1)
+s0 <- sum(cut_logit_data$d0)
+
+
+cut_logit_data<- cut_logit_data %>% 
+  mutate(y1 = treat * OBESITY_CrudePrev_2017/pscore,
+         y0 = (1-treat) * OBESITY_CrudePrev_2017/(1-pscore),
+         ht = y1 - y0)
+
+#- Manual with normalized weights
+cut_logit_data <- cut_logit_data  %>% 
+  mutate(y1 = (treat*OBESITY_CrudePrev_2017/pscore)/(s1/N),
+         y0 = ((1-treat)*OBESITY_CrudePrev_2017/(1-pscore))/(s0/N),
+         norm = y1 - y0)
+
+cut_logit_data  %>% 
+  pull(ht) %>% 
+  mean()
+```
+Above is the non-weighted difference in obesity prevalence.  This suggests that grocery store closures result in a 16.6% decrease in the prevalence of obesity.  This is extremely high and counter-intuitive, but once we normalize the weights, we find a difference of 4%.  This suggests that the difference in the prevalence of obesity in a census tract that has experienced grocery store closures is about a 4% increase over a tract that has not experienced closures.
+
+
+```{r}
+cut_logit_data %>% 
+  pull(norm) %>% 
+  mean()
+
+```
+
